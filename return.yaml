@@ -1,0 +1,114 @@
+# CT600 Corporation Tax Return
+# Fill in all fields below, then run:
+#   pdm run ct600-cli --dry-run        # build XML and print it
+#   pdm run ct600-cli --lts            # submit to local LTS test server
+#   pdm run ct600-cli --til            # submit to HMRC Test-in-Live
+#   pdm run ct600-cli --live           # real production filing (asks for confirmation)
+
+company:
+  name: "My Company Ltd"              # Registered company name (Box 1)
+  registration_number: "12345678"     # Companies House number (Box 2)
+  utr: "1234567890"                   # 10-digit Unique Taxpayer Reference (Box 3)
+  type: 0                             # Company type (Box 4) — 0 = standard UK company
+
+period:
+  from: "2024-10-01"                  # Start of accounting period (Box 30)
+  to: "2025-09-30"                    # End of accounting period (Box 35)
+
+# Box 80 / Box 90: accounts and computations attachment.
+# If filing accounts separately with Companies House (the normal approach when not
+# using commercial software), set no_accounts_reason and leave accounts out of this
+# submission. HMRC will use the CT600 figures; Companies House gets the accounts
+# separately via their own portal.
+no_accounts_reason: "Micro-entity accounts filed separately with Companies House."
+
+# Box 50: tick if any figures in this return are estimated
+estimated_figures: false
+
+# Box 145: total turnover from trade
+turnover:
+  total: 0.00
+
+# Boxes 155, 160, 165
+income:
+  trading:
+    profits: 0.00                     # Box 155: trading profit after allowable expenses
+    losses_brought_forward: 0.00      # Box 160: prior-period losses set against trading profit
+    net_profits: 0.00                 # Box 165: profits minus losses_brought_forward
+
+# Box 235: net trading profits plus any other income (property, non-trading loan relationships etc.)
+profits_before_other_deductions: 0.00
+
+# Boxes 240–295: deductions that reduce profits before the tax rate is applied.
+# Most small companies only need trading_losses_carried_forward (Box 285).
+deductions_and_reliefs:
+  trading_losses_carried_forward: 0.00  # Box 285: prior-period trading losses claimed against total profits
+  total: 0.00                           # Box 295: sum of all deductions (240–290)
+
+# Box 300: profits_before_other_deductions minus deductions_and_reliefs total
+profits_before_donations_and_group_relief: 0.00
+
+# Box 315: amount subject to corporation tax (after qualifying donations and group relief)
+chargeable_profits: 0.00
+
+# Corporation tax calculation split by financial year.
+# A 12-month period starting in October always spans two financial years (FY = year starting April).
+# If chargeable_profits is 0, profit and tax in both years will also be 0.
+corporation_tax:
+  financial_year_1:
+    year: 2024                        # FY starting April of this year (Box 330)
+    profit: 0.00                      # Profits apportioned to this FY (Box 335)
+    tax_rate: 19.00                   # 19% for small profits (≤£50k); 25% main rate (Box 340)
+    tax: 0.00                         # profit × tax_rate / 100 (Box 345)
+  financial_year_2:
+    year: 2025                        # FY starting April of this year (Box 380)
+    profit: 0.00                      # (Box 385)
+    tax_rate: 19.00                   # (Box 390)
+    tax: 0.00                         # (Box 395)
+  total: 0.00                         # Box 430: sum of FY taxes
+
+# Box 329: tick if the company qualifies for the small profits rate or marginal relief
+# (profits ≤ £50,000 with no associated companies — 19% rate rather than 25%)
+small_profits_rate: true
+
+# Boxes 327, 328: number of 51%+ associated companies in FY1 and FY2
+# Affects the profit thresholds for small profits rate
+associated_companies:
+  fy1: 0
+  fy2: 0
+
+# Box 440: corporation tax after marginal relief
+net_corporation_tax_chargeable: 0.00
+
+# Boxes 445–470: reliefs in terms of tax — R&D tax credits, double taxation relief etc.
+# Most small companies leave this at zero.
+tax_reliefs_and_deductions:
+  total: 0.00
+
+calculation:
+  net_corporation_tax_liability: 0.00  # Box 475
+  tax_chargeable: 0.00                 # Box 510: liability after income tax deducted at source
+  tax_payable: 0.00                    # Box 528: final amount due (or negative = repayment)
+
+declaration:
+  name: "Jane Smith"                   # Full name of person signing (Box 975)
+  status: "Director"                   # Role: Director, Secretary, etc. (Box 985)
+  date: "2025-12-01"                   # Date of declaration (Box 980)
+
+# Bank account for any CT repayment (Boxes 920–940)
+# Only needed if tax_payable is negative (HMRC owes you money)
+# bank:
+#   name: "Barclays"                   # Bank name (Box 920)
+#   sort_code: "201530"                # 6-digit sort code (Box 925)
+#   account_number: "12345678"         # Account number (Box 930)
+#   account_name: "My Company Ltd"     # Account name (Box 935)
+
+# Submission credentials
+# For LTS testing, dummy values work fine.
+# For TIL/live, use your Government Gateway credentials.
+credentials:
+  sender_id: "dummy"                   # Government Gateway username
+  password: "dummy"                    # Government Gateway password
+  vendor_id: "0000"                    # 4-digit HMRC vendor ID (from SDST registration)
+  product: "ct600-filing"
+  version: "1.0"
