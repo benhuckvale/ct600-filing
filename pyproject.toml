@@ -1,0 +1,37 @@
+[project]
+name = "ct600"
+version = "0.1.0"
+description = "CT600 corporation tax filing tool for HMRC"
+requires-python = ">=3.11"
+dependencies = [
+    "lxml>=5.0",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+    "click>=8.1",
+]
+
+[project.scripts]
+ct600 = "ct600.cli:main"
+lts = "ct600.lts:lts"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+]
+
+[tool.pdm.scripts]
+test = "pytest tests/ -v"
+test-unit = "pytest tests/test_build.py tests/test_irmark.py -v"
+test-lts = "pytest tests/test_lts.py -v -m integration"
+ct600-cli = {call = "ct600.cli:main"}
+lts = {call = "ct600.lts:lts"}
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: requires running LTS server",
+]

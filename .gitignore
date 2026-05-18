@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+__pypackages__/
+.pdm.toml
+.pdm-python
+*.egg-info/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+
+# Project-specific (not committed)
+lts/
+historic/
+returns/
+reference/
+.lts.pid
+
+# Claude
+.claude/
+
+# OS
+.DS_Store
