@@ -99,8 +99,8 @@ def build_xml(data: dict, gateway_test: bool = True) -> bytes:
         _el(accts_el, f"{C}NoAccountsReason", no_accounts_reason)
         _el(comps_el, f"{C}NoComputationsReason", no_accounts_reason)
     else:
-        _el(accts_el, f"{C}AccountsAttached", "yes")
-        _el(comps_el, f"{C}ComputationsAttached", "yes")
+        _el(accts_el, f"{C}ThisPeriodAccounts", "yes")
+        _el(comps_el, f"{C}ThisPeriodComputations", "yes")
 
     turnover = _el(ctr, f"{C}Turnover")
     _el(turnover, f"{C}Total", _fmt(data["turnover"]["total"]))
@@ -110,7 +110,9 @@ def build_xml(data: dict, gateway_test: bool = True) -> bytes:
     trading_el = _el(income_el, f"{C}Trading")
     td = data["income"]["trading"]
     _el(trading_el, f"{C}Profits", _fmt(td["profits"]))
-    _el(trading_el, f"{C}LossesBroughtForward", _fmt(td.get("losses_brought_forward", 0)))
+    lbf = float(td.get("losses_brought_forward", 0))
+    if lbf:
+        _el(trading_el, f"{C}LossesBroughtForward", _fmt(lbf))
     _el(trading_el, f"{C}NetProfits", _fmt(td["net_profits"]))
 
     _el(ctc, f"{C}ProfitsBeforeOtherDeductions", _fmt(data["profits_before_other_deductions"]))
@@ -152,4 +154,4 @@ def build_xml(data: dict, gateway_test: bool = True) -> bytes:
     # Compute IRmark over the body element and insert it
     irmark_el.text = compute_irmark(body)
 
-    return etree.tostring(root, xml_declaration=True, encoding="UTF-8", pretty_print=True)
+    return etree.tostring(root, xml_declaration=True, encoding="UTF-8")

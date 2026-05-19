@@ -134,17 +134,17 @@ def test_declaration():
 
 
 def test_no_accounts_reason_when_set():
-    data = {**SAMPLE, "no_accounts_reason": "Filed separately with Companies House."}
+    data = {**SAMPLE, "no_accounts_reason": "Other - PDF attached with explanation"}
     root = _parse(data)
-    assert root.findtext(f".//{C}NoAccountsReason") == "Filed separately with Companies House."
-    assert root.findtext(f".//{C}NoComputationsReason") == "Filed separately with Companies House."
+    assert root.findtext(f".//{C}NoAccountsReason") == "Other - PDF attached with explanation"
+    assert root.findtext(f".//{C}NoComputationsReason") == "Other - PDF attached with explanation"
 
 
 def test_accounts_attached_when_no_reason():
     data = {k: v for k, v in SAMPLE.items() if k != "no_accounts_reason"}
     root = _parse(data)
-    assert root.findtext(f".//{C}AccountsAttached") == "yes"
-    assert root.findtext(f".//{C}ComputationsAttached") == "yes"
+    assert root.findtext(f".//{C}ThisPeriodAccounts") == "yes"
+    assert root.findtext(f".//{C}ThisPeriodComputations") == "yes"
 
 
 def test_two_financial_years():

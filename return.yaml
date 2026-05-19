@@ -16,11 +16,16 @@ period:
   to: "2025-09-30"                    # End of accounting period (Box 35)
 
 # Box 80 / Box 90: accounts and computations attachment.
-# If filing accounts separately with Companies House (the normal approach when not
-# using commercial software), set no_accounts_reason and leave accounts out of this
-# submission. HMRC will use the CT600 figures; Companies House gets the accounts
-# separately via their own portal.
-no_accounts_reason: "Micro-entity accounts filed separately with Companies House."
+# The value must be one of these exact strings (HMRC XSD enumeration):
+#   "PoA differs from AP-a/cs with sep rtn"   — long period of account, accounts with accompanying return
+#   "Company in liquidation"
+#   "Not within charge to CT"
+#   "Company dormant"
+#   "Amendment - a/cs already submitted"
+#   "Other - PDF attached with explanation"    — use this when filing accounts separately at Companies House
+#   "PDF accounts attached with explanation"
+# For micro-entity accounts filed separately at Companies House, use:
+no_accounts_reason: "Other - PDF attached with explanation"
 
 # Box 50: tick if any figures in this return are estimated
 estimated_figures: false
