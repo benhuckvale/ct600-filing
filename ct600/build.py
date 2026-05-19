@@ -122,6 +122,17 @@ def build_xml(data: dict, gateway_test: bool = True) -> bytes:
 
     ct_data = data["corporation_tax"]
     ct_chargeable = _el(ctc, f"{C}CorporationTaxChargeable")
+    if data.get("small_profits_rate") or "associated_companies" in data:
+        assoc = _el(ct_chargeable, f"{C}AssociatedCompanies")
+        ac = data.get("associated_companies", {})
+        if "fy1" in ac and "fy2" in ac:
+            ac_years = _el(assoc, f"{C}AssociatedCompaniesFinancialYears")
+            _el(ac_years, f"{C}FirstYear", str(ac["fy1"]))
+            _el(ac_years, f"{C}SecondYear", str(ac["fy2"]))
+        elif "fy1" in ac:
+            _el(assoc, f"{C}ThisPeriod", str(ac["fy1"]))
+        if data.get("small_profits_rate"):
+            _el(assoc, f"{C}StartingOrSmallCompaniesRate", "yes")
     fy1 = _el(ct_chargeable, f"{C}FinancialYearOne")
     _el(fy1, f"{C}Year", str(ct_data["financial_year_1"]["year"]))
     d1 = _el(fy1, f"{C}Details")
