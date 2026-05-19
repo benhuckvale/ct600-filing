@@ -18,7 +18,7 @@ def _fmt(n: object) -> str:
     return f"{float(n):.2f}"
 
 
-def build_xml(data: dict, gateway_test: bool = True) -> bytes:
+def build_xml(data: dict, gateway_test: bool = True, til: bool = False) -> bytes:
     """Build a GovTalkMessage XML document from a CT600 return data dict."""
     company = data["company"]
     period = data["period"]
@@ -33,7 +33,7 @@ def build_xml(data: dict, gateway_test: bool = True) -> bytes:
     # --- Header ---
     header = _el(root, f"{G}Header")
     msg = _el(header, f"{G}MessageDetails")
-    _el(msg, f"{G}Class", "HMRC-CT-CT600")
+    _el(msg, f"{G}Class", "HMRC-CT-CT600-TIL" if til else "HMRC-CT-CT600")
     _el(msg, f"{G}Qualifier", "request")
     _el(msg, f"{G}Function", "submit")
     _el(msg, f"{G}CorrelationID")

@@ -51,8 +51,8 @@ def main(yaml_file: str, target: str, dry_run: bool, output: str | None) -> None
 
     data = _apply_env_credentials(data)
 
-    gateway_test = target != "live"
-    xml = build_xml(data, gateway_test=gateway_test)
+    gateway_test = target == "lts"
+    xml = build_xml(data, gateway_test=gateway_test, til=(target == "til"))
 
     if output:
         with open(output, "wb") as f:

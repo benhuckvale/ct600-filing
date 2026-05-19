@@ -87,6 +87,17 @@ Open-source Python/XSLT CT600 utility. Takes iXBRL accounts files and extracts d
 
 ---
 
+## Test-in-Live (TIL)
+
+### [Basic guide for XML software developers — TIL](https://www.gov.uk/guidance/basic-guide-for-xml-software-developers#test-in-live-til)
+TIL submits to HMRC's live gateway but doesn't reach their backend systems — credentials are validated, the XML is checked, but nothing is actually filed. Two requirements vs a normal submission:
+1. `<Class>` must have a `-TIL` suffix: `HMRC-CT-CT600-TIL`
+2. `GatewayTest` must be `0` (the live gateway schema rejects `1`)
+
+The `--til` flag in this tool handles both automatically.
+
+---
+
 ## Submission Endpoints
 
 | Environment | URL | Notes |
