@@ -19,6 +19,9 @@ historic/
 returns/
 .lts.pid
 
+# Credentials
+.env
+
 # Claude
 .claude/
 
