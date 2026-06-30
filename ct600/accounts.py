@@ -155,6 +155,12 @@ def build_accounts(data: dict) -> bytes:
     dim_row("Audit status", "Unaudited (audit exempt, no accountant's report)",
             "uk-bus:AccountsStatusAuditedOrUnaudited",
             "uk-bus:AccountsStatusDimension", "uk-bus:AuditExempt-NoAccountantsReport")
+    # Completeness indicators ChRIS requires for a set of accounts.
+    dim_row("Accounts type", "Full micro-entity accounts",
+            "uk-bus:AccountsTypeFullOrAbbreviated",
+            "uk-bus:AccountsTypeDimension", "uk-bus:FullAccounts")
+    info_row("Trading status", "uk-bus:EntityTradingStatus", "")   # present (trading)
+    info_row("Dormant", "uk-bus:EntityDormantTruefalse", "false")
     if acc.get("activities"):
         info_row("Principal activities", "uk-bus:DescriptionPrincipalActivities", acc["activities"])
     if acc.get("company_type"):
@@ -219,12 +225,14 @@ def build_accounts(data: dict) -> bytes:
     # TODO(pre-TIL): tag the micro-entity provisions statement with the exact
     # FRC uk-direp element once confirmed against the FRS 105 taxonomy.
 
-    approved = _h(body, "p", f"Approved by the board and signed on its behalf by: {acc['director']}")
-    # Which director signed — an empty fact; the officer is identified by the
-    # EntityOfficersDimension member, not by element text.
+    approved = _h(body, "p", "Approved by the board and signed on its behalf by: ")
     officer_ctx = doc.context(start=period["from"], end=period["to"],
                               dims={"uk-bus:EntityOfficersDimension": "uk-bus:Director1"})
+    # Which director signed — empty fact; the officer is the dimension member.
     doc.text(approved, "uk-core:DirectorSigningFinancialStatements", "", officer_ctx)
+    # The officer's name against the same dimension (also satisfies the ChRIS
+    # rule that a referenced officer must have an associated name).
+    doc.text(approved, "uk-bus:NameEntityOfficer", acc["director"], officer_ctx)
     if acc.get("approval_date"):
         dt = _h(body, "p", "Date approved: ")
         doc.text(dt, "uk-core:DateAuthorisationFinancialStatementsForIssue", acc["approval_date"], cur_bs)
