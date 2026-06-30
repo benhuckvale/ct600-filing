@@ -95,6 +95,10 @@ calculation:
   tax_chargeable: 0.00                 # Box 510: liability after income tax deducted at source
   tax_payable: 0.00                    # Box 528: final amount due (or negative = repayment)
 
+# Box 780: trading losses arising in this period (only fill in for a loss year)
+# losses_arising:
+#   trading_uk: 0.00
+
 declaration:
   name: "Jane Smith"                   # Full name of person signing (Box 975)
   status: "Director"                   # Role: Director, Secretary, etc. (Box 985)

@@ -1,0 +1,198 @@
+"""Generate FRS 105 micro-entity accounts as an iXBRL document.
+
+A micro-entity set filed with HMRC is essentially a balance sheet (the lettered
+CA2006 micro format) plus minimal notes and the director-approval / micro-entity
+provisions statements. The detailed profit & loss goes in the *computation*
+document (see computation.py), not here.
+
+Tag names and context structure are taken from reference/ct600/accts.html.
+"""
+from ct600.ixbrl import IxbrlDocument, H, software_label
+from lxml import etree
+
+# --- taxonomy version -------------------------------------------------------
+# TODO(pre-TIL): bump to the FRC suite version HMRC accepts for the accounting
+# period (FRC 2023/2024/2025 for periods ending in 2025) and confirm against
+# https://www.gov.uk/government/publications/taxonomies-accepted-by-hm-revenue-and-customs
+# The 2021-01-01 entry point is the known-good version from the worked example.
+FRC_VERSION = "2021-01-01"
+
+UK_CORE = f"http://xbrl.frc.org.uk/fr/{FRC_VERSION}/core"
+UK_BUS = f"http://xbrl.frc.org.uk/cd/{FRC_VERSION}/business"
+UK_DIREP = f"http://xbrl.frc.org.uk/reports/{FRC_VERSION}/direp"
+UK_GEO = f"http://xbrl.frc.org.uk/cd/{FRC_VERSION}/countries"
+FRS105_SCHEMA = f"https://xbrl.frc.org.uk/FRS-105/{FRC_VERSION}/FRS-105-{FRC_VERSION}.xsd"
+
+NSMAP = {
+    "uk-core": UK_CORE,
+    "uk-bus": UK_BUS,
+    "uk-direp": UK_DIREP,
+    "uk-geo": UK_GEO,
+}
+
+MATURITY_DIM = "uk-core:MaturitiesOrExpirationPeriodsDimension"
+
+# yaml balance-sheet key -> (uk-core tag, maturity member or None)
+BALANCE_SHEET_LINES = [
+    ("fixed_assets", "uk-core:FixedAssets", None),
+    ("current_assets", "uk-core:CurrentAssets", None),
+    ("prepayments", "uk-core:PrepaymentsAccruedIncomeNotExpressedWithinCurrentAssetSubtotal", None),
+    ("creditors_within_1y", "uk-core:Creditors", "uk-core:WithinOneYear"),
+    ("net_current_assets", "uk-core:NetCurrentAssetsLiabilities", None),
+    ("total_assets_less_current_liabilities", "uk-core:TotalAssetsLessCurrentLiabilities", None),
+    ("creditors_after_1y", "uk-core:Creditors", "uk-core:AfterOneYear"),
+    ("provisions", "uk-core:ProvisionsForLiabilitiesBalanceSheetSubtotal", None),
+    ("accruals", "uk-core:AccruedLiabilitiesDeferredIncome", None),
+    ("net_assets", "uk-core:NetAssetsLiabilities", None),
+    ("equity", "uk-core:Equity", None),
+]
+
+BALANCE_SHEET_LABELS = {
+    "fixed_assets": "Fixed assets",
+    "current_assets": "Current assets",
+    "prepayments": "Prepayments and accrued income",
+    "creditors_within_1y": "Creditors: amounts falling due within one year",
+    "net_current_assets": "Net current assets/(liabilities)",
+    "total_assets_less_current_liabilities": "Total assets less current liabilities",
+    "creditors_after_1y": "Creditors: amounts falling due after more than one year",
+    "provisions": "Provisions for liabilities",
+    "accruals": "Accruals and deferred income",
+    "net_assets": "Net assets/(liabilities)",
+    "equity": "Capital and reserves",
+}
+
+MICRO_PROVISIONS_STATEMENT = (
+    "These financial statements have been prepared in accordance with the "
+    "micro-entity provisions and the Financial Reporting Standard applicable to "
+    "the Micro-entities Regime (FRS 105)."
+)
+
+
+def _h(parent, tag, text=None, **attrib):
+    el = etree.SubElement(parent, f"{H}{tag}", **attrib)
+    if text is not None:
+        el.text = text
+    return el
+
+
+def build_accounts(data: dict) -> bytes:
+    company = data["company"]
+    period = data["period"]
+    acc = data["accounts"]
+    prior = acc["prior_period"]
+
+    sw_name, sw_version = software_label(data)
+    doc = IxbrlDocument(
+        entity_number=company["registration_number"],
+        schema_refs=[FRS105_SCHEMA],
+        taxonomy_nsmap=NSMAP,
+        title=f"{company['name']} — Micro-entity accounts",
+        software=sw_name,
+        software_version=sw_version,
+    )
+
+    # Contexts -------------------------------------------------------------
+    cur_dur = doc.context(start=period["from"], end=period["to"])
+    prior_dur = doc.context(start=prior["from"], end=prior["to"])
+    cur_bs = doc.context(instant=period["to"])
+    prior_bs = doc.context(instant=prior["to"])
+
+    body = doc.body
+
+    # --- Company information ---------------------------------------------
+    _h(body, "h1", f"{company['name']}")
+    _h(body, "p", "Unaudited micro-entity financial statements")
+    _h(body, "p", f"For the year ended {period['to']}")
+
+    info = _h(body, "table")
+    def info_row(label, name, value, ctx=cur_dur):
+        tr = _h(info, "tr")
+        _h(tr, "td", label)
+        td = _h(tr, "td")
+        doc.text(td, name, value, ctx)
+
+    info_row("Company name", "uk-bus:EntityCurrentLegalOrRegisteredName", company["name"])
+    info_row("Company number", "uk-bus:UKCompaniesHouseRegisteredNumber", company["registration_number"])
+    info_row("Period start", "uk-bus:StartDateForPeriodCoveredByReport", period["from"])
+    info_row("Period end", "uk-bus:EndDateForPeriodCoveredByReport", period["to"])
+    info_row("Accounting standard", "uk-bus:AccountingStandardsApplied", "Micro-entities")
+    info_row("Audit status", "uk-bus:AccountsStatusAuditedOrUnaudited", "Unaudited")
+    if acc.get("activities"):
+        info_row("Principal activities", "uk-bus:DescriptionPrincipalActivities", acc["activities"])
+    if acc.get("company_type"):
+        info_row("Legal form", "uk-bus:LegalFormEntity", acc["company_type"])
+    # SIC codes — uk-bus:SICCodeRecordedUKCompaniesHouse1..4 (Companies House allows up to 4)
+    sic_codes = acc.get("sic_codes") or ([acc["sic_code"]] if acc.get("sic_code") else [])
+    for i, code in enumerate(sic_codes[:4], start=1):
+        info_row(f"SIC code {i}", f"uk-bus:SICCodeRecordedUKCompaniesHouse{i}", str(code))
+    if acc.get("formation_date"):
+        info_row("Date of incorporation", "uk-bus:DateFormationOrIncorporation", acc["formation_date"])
+    if acc.get("jurisdiction"):
+        info_row("Jurisdiction of incorporation", "uk-bus:CountryFormationOrIncorporation", acc["jurisdiction"])
+    office = acc.get("registered_office", {})
+    if office.get("line1"):
+        info_row("Registered office", "uk-bus:AddressLine1", office["line1"])
+    if office.get("line2"):
+        info_row("Address line 2", "uk-bus:AddressLine2", office["line2"])
+    if office.get("city"):
+        info_row("Town/city", "uk-bus:PrincipalLocation-CityOrTown", office["city"])
+    if office.get("county"):
+        info_row("County/region", "uk-bus:CountyRegion", office["county"])
+    if office.get("postcode"):
+        info_row("Postcode", "uk-bus:PostalCodeZip", office["postcode"])
+    info_row("Software", "uk-bus:NameProductionSoftware", doc.software)
+    if doc.software_version:
+        info_row("Software version", "uk-bus:VersionProductionSoftware", doc.software_version)
+    # Balance sheet date (instant)
+    info_row("Balance sheet date", "uk-bus:BalanceSheetDate", period["to"], ctx=cur_bs)
+
+    # --- Balance sheet ----------------------------------------------------
+    _h(body, "h2", "Statement of financial position")
+    bs = acc["balance_sheet"]
+    cur = bs["current"]
+    pri = bs["prior"]
+
+    table = _h(body, "table")
+    hdr = _h(table, "tr")
+    _h(hdr, "th", "")
+    _h(hdr, "th", period["to"])
+    _h(hdr, "th", prior["to"])
+
+    for key, tag, member in BALANCE_SHEET_LINES:
+        if key not in cur and key not in pri:
+            continue
+        tr = _h(table, "tr")
+        _h(tr, "td", BALANCE_SHEET_LABELS[key])
+        dims = {MATURITY_DIM: member} if member else None
+        ctx_cur = doc.context(instant=period["to"], dims=dims) if member else cur_bs
+        ctx_pri = doc.context(instant=prior["to"], dims=dims) if member else prior_bs
+        td_c = _h(tr, "td")
+        if cur.get(key) is not None:
+            doc.num(td_c, tag, cur[key], ctx_cur, decimals=0)
+        td_p = _h(tr, "td")
+        if pri.get(key) is not None:
+            doc.num(td_p, tag, pri[key], ctx_pri, decimals=0)
+
+    # --- Micro-entity provisions statement + approval --------------------
+    _h(body, "p", MICRO_PROVISIONS_STATEMENT)
+    # TODO(pre-TIL): tag the micro-entity provisions statement with the exact
+    # FRC uk-direp element once confirmed against the FRS 105 taxonomy.
+
+    approved = _h(body, "p", "Approved by the board and signed on its behalf by: ")
+    doc.text(approved, "uk-core:DirectorSigningFinancialStatements", acc["director"], cur_dur)
+    if acc.get("approval_date"):
+        dt = _h(body, "p", "Date approved: ")
+        doc.text(dt, "uk-core:DateAuthorisationFinancialStatementsForIssue", acc["approval_date"], cur_bs)
+
+    # --- Notes: average employees ----------------------------------------
+    emp = acc.get("average_employees", {})
+    if emp:
+        _h(body, "h2", "Notes to the financial statements")
+        note = _h(body, "p", "Average number of employees during the period: ")
+        if emp.get("current") is not None:
+            doc.num(note, "uk-core:AverageNumberEmployeesDuringPeriod", emp["current"], cur_dur, unit="pure", decimals=0)
+        if emp.get("prior") is not None:
+            sep = _h(body, "p", "Prior period average number of employees: ")
+            doc.num(sep, "uk-core:AverageNumberEmployeesDuringPeriod", emp["prior"], prior_dur, unit="pure", decimals=0)
+
+    return doc.tostring()

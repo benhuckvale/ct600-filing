@@ -26,11 +26,12 @@ dev = [
 
 [tool.pdm.scripts]
 test = "pytest tests/ -v"
-test-unit = "pytest tests/test_build.py tests/test_irmark.py -v"
+test-unit = "pytest tests/test_build.py tests/test_irmark.py tests/test_ixbrl.py -v"
 test-lts = "pytest tests/test_lts.py -v -m integration"
 ct600-cli = {call = "ct600.cli:main"}
 lts = {call = "ct600.lts:lts"}
 check-history = {cmd = "bash -c 'git log -p | python scripts/check_history.py'"}
+preview = {cmd = "python scripts/preview_xml.py"}
 
 [tool.pytest.ini_options]
 markers = [

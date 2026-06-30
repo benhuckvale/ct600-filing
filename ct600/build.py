@@ -1,5 +1,8 @@
+import base64
 from lxml import etree
 from ct600.irmark import compute_irmark
+from ct600.accounts import build_accounts
+from ct600.computation import build_computation
 
 GOVTALK_NS = "http://www.govtalk.gov.uk/CM/envelope"
 CT_NS = "http://www.govtalk.gov.uk/taxation/CT/5"
@@ -91,16 +94,20 @@ def build_xml(data: dict, gateway_test: bool = True, til: bool = False) -> bytes
     _el(pc, f"{C}From", period["from"])
     _el(pc, f"{C}To", period["to"])
 
+    # Embed real iXBRL accounts + computations when the data provides them;
+    # otherwise fall back to the NoAccountsReason escape hatch.
+    embed_ixbrl = "accounts" in data and "computation" in data
+
     ris = _el(ctr, f"{C}ReturnInfoSummary")
     accts_el = _el(ris, f"{C}Accounts")
     comps_el = _el(ris, f"{C}Computations")
     no_accounts_reason = data.get("no_accounts_reason")
-    if no_accounts_reason:
-        _el(accts_el, f"{C}NoAccountsReason", no_accounts_reason)
-        _el(comps_el, f"{C}NoComputationsReason", no_accounts_reason)
-    else:
+    if embed_ixbrl or not no_accounts_reason:
         _el(accts_el, f"{C}ThisPeriodAccounts", "yes")
         _el(comps_el, f"{C}ThisPeriodComputations", "yes")
+    else:
+        _el(accts_el, f"{C}NoAccountsReason", no_accounts_reason)
+        _el(comps_el, f"{C}NoComputationsReason", no_accounts_reason)
 
     turnover = _el(ctr, f"{C}Turnover")
     _el(turnover, f"{C}Total", _fmt(data["turnover"]["total"]))
@@ -116,6 +123,18 @@ def build_xml(data: dict, gateway_test: bool = True, til: bool = False) -> bytes
     _el(trading_el, f"{C}NetProfits", _fmt(td["net_profits"]))
 
     _el(ctc, f"{C}ProfitsBeforeOtherDeductions", _fmt(data["profits_before_other_deductions"]))
+
+    # Boxes 285, 295 — deductions reducing profits (prior-period losses claimed etc.)
+    ded = data.get("deductions_and_reliefs", {})
+    lcf = float(ded.get("trading_losses_carried_forward", 0))
+    ded_total = float(ded.get("total", 0))
+    if lcf or ded_total:
+        deductions_el = _el(ctc, f"{C}DeductionsAndReliefs")
+        if lcf:
+            _el(deductions_el, f"{C}TradingLossesCarriedForward", _fmt(lcf))
+        if ded_total:
+            _el(deductions_el, f"{C}Total", _fmt(ded_total))
+
     charges = _el(ctc, f"{C}ChargesAndReliefs")
     _el(charges, f"{C}ProfitsBeforeDonationsAndGroupRelief", _fmt(data["profits_before_donations_and_group_relief"]))
     _el(ctc, f"{C}ChargeableProfits", _fmt(data["chargeable_profits"]))
@@ -157,10 +176,39 @@ def build_xml(data: dict, gateway_test: bool = True, til: bool = False) -> bytes
     _el(calc, f"{C}TaxChargeable", _fmt(data["calculation"]["tax_chargeable"]))
     _el(calc, f"{C}TaxPayable", _fmt(data["calculation"]["tax_payable"]))
 
+    # Box 780 — trading losses arising in this period (carry-forward source)
+    losses = data.get("losses_arising", {})
+    trading_loss_uk = float(losses.get("trading_uk", 0))
+    if trading_loss_uk:
+        losses_el = _el(ctr, f"{C}LossesDeficitsAndExcess")
+        arising_el = _el(losses_el, f"{C}AmountArising")
+        uk_el = _el(arising_el, f"{C}LossesOfTradesUK")
+        _el(uk_el, f"{C}Arising", _fmt(trading_loss_uk))
+
     decl = _el(ctr, f"{C}Declaration")
     _el(decl, f"{C}AcceptDeclaration", "yes")
     _el(decl, f"{C}Name", data["declaration"]["name"])
     _el(decl, f"{C}Status", data["declaration"]["status"])
+    # Note: the CT600 schema's Declaration has no Date child (confirmed against
+    # the LTS schema). The signing date lives in the iXBRL accounts approval.
+
+    # --- AttachedFiles: embed the iXBRL accounts + computations -----------
+    # Structure (from reference/ct600 corptax.py):
+    #   CompanyTaxReturn/AttachedFiles/XBRLsubmission/{Computation,Accounts}
+    #     /Instance/EncodedInlineXBRLDocument = base64(iXBRL)
+    if embed_ixbrl:
+        accounts_ixbrl = build_accounts(data)
+        computation_ixbrl = build_computation(data)
+        attached = _el(ctr, f"{C}AttachedFiles")
+        xbrl_sub = _el(attached, f"{C}XBRLsubmission")
+        comp_wrap = _el(xbrl_sub, f"{C}Computation")
+        comp_inst = _el(comp_wrap, f"{C}Instance")
+        _el(comp_inst, f"{C}EncodedInlineXBRLDocument",
+            base64.b64encode(computation_ixbrl).decode("ascii"))
+        accts_wrap = _el(xbrl_sub, f"{C}Accounts")
+        accts_inst = _el(accts_wrap, f"{C}Instance")
+        _el(accts_inst, f"{C}EncodedInlineXBRLDocument",
+            base64.b64encode(accounts_ixbrl).decode("ascii"))
 
     # Compute IRmark over the body element and insert it
     irmark_el.text = compute_irmark(body)

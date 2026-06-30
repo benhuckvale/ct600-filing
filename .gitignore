@@ -19,6 +19,12 @@ historic/
 returns/
 .lts.pid
 
+# Generated submissions & personal working files (contain UTR / figures / address)
+/*.xml
+tax_return_form_*.txt
+tax_return_notes_*.txt
+reference/ct600/
+
 # Credentials
 .env
 
