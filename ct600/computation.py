@@ -8,38 +8,25 @@ This document does two jobs HMRC needs alongside the CT600:
 Tag names and structure are taken from reference/ct600/ct.html.
 """
 from ct600.ixbrl import IxbrlDocument, H, software_label
-from ct600.accounts import NSMAP as FRC_NSMAP
+from ct600.accounts import NSMAP as FRC_NSMAP, FRS105_SCHEMA
 from lxml import etree
 
 # --- taxonomy version -------------------------------------------------------
-# TODO(pre-TIL): for an accounting period ending 30 Sep 2025 HMRC accepts the
-# "Corporation Tax computational 2024" taxonomy. Bump CT_VERSION/CT_YEAR and the
-# DPL version to the accepted set and confirm via Test-in-Live before filing.
-# 2021-01-01 is the known-good version from the worked example.
-CT_VERSION = "2021-01-01"
-CT_YEAR = "2021"
+# "Corporation Tax computational 2024" — the version HMRC accepts for an
+# accounting period ending 30 Sep 2025 (confirmed from HMRC's CT2024 download;
+# namespace + schemaRef verified against the official ct-comp-2024 sample).
+# Note: the separate HMRC DPL ("dpl:") taxonomy is gone in 2024 — the detailed
+# P&L lines are tagged with FRC uk-core concepts instead (resolved via the FRC
+# schemaRef below). Confirm final acceptance via Test-in-Live.
+CT_VERSION = "2024-01-01"
+CT_YEAR = "2024"
 
 CT_COMP = f"http://www.hmrc.gov.uk/schemas/ct/comp/{CT_VERSION}"
-DPL = f"http://www.hmrc.gov.uk/schemas/ct/dpl/{CT_VERSION}"
 CT_COMP_SCHEMA = f"{CT_COMP}/ct-comp-{CT_YEAR}.xsd"
-DPL_SCHEMA = f"{DPL}/dpl-{CT_YEAR}.xsd"
 
 NSMAP = {
     "ct-comp": CT_COMP,
-    "dpl": DPL,
-    **FRC_NSMAP,
-}
-
-# Default Detailed P&L mapping. Each line must use a DISTINCT tag (XBRL forbids
-# two facts with the same concept + context). Staff costs map to uk-core:
-# WagesSalaries; remaining costs lump into OtherOperationalAdministrationCosts.
-# TODO: break "other costs" down by real expense nature into distinct dpl: tags.
-DEFAULT_DPL_LABELS = {
-    "uk-core:TurnoverRevenue": "Turnover",
-    "uk-core:WagesSalaries": "Staff costs",
-    "dpl:OtherOperationalAdministrationCosts": "Other operating costs",
-    "dpl:TotalCosts": "Total costs",
-    "uk-core:ProfitLoss": "Profit/(loss) for the period",
+    **FRC_NSMAP,  # uk-core etc. for the detailed P&L lines
 }
 
 
@@ -59,7 +46,7 @@ def build_computation(data: dict) -> bytes:
     sw_name, sw_version = software_label(data)
     doc = IxbrlDocument(
         entity_number=company["registration_number"],
-        schema_refs=[CT_COMP_SCHEMA, DPL_SCHEMA],
+        schema_refs=[CT_COMP_SCHEMA, FRS105_SCHEMA],  # ct-comp + FRC (for uk-core P&L)
         taxonomy_nsmap=NSMAP,
         title=f"{company['name']} — Corporation tax computation",
         software=sw_name,
@@ -97,12 +84,16 @@ def build_computation(data: dict) -> bytes:
     _h(body, "h2", "Detailed profit and loss account")
     pl = _h(body, "table")
     for line in comp["detailed_pl"]:
-        tag = line["tag"]
-        label = line.get("label") or DEFAULT_DPL_LABELS.get(tag, tag)
+        tag = line.get("tag")
         tr = _h(pl, "tr")
-        _h(tr, "td", label)
+        _h(tr, "td", line.get("label", tag or ""))
         td = _h(tr, "td")
-        doc.num(td, tag, line["amount"], dur, decimals=2)
+        if tag:
+            doc.num(td, tag, line["amount"], dur, decimals=2)
+        else:
+            # No distinct taxonomy concept — show the figure untagged (still a
+            # full, readable breakdown; avoids duplicate concept+context facts).
+            td.text = f"{float(line['amount']):,.2f}"
 
     # --- Computation bridge ----------------------------------------------
     _h(body, "h2", "Adjustment of profit / tax computation")

@@ -11,11 +11,10 @@ from ct600.ixbrl import IxbrlDocument, H, software_label
 from lxml import etree
 
 # --- taxonomy version -------------------------------------------------------
-# TODO(pre-TIL): bump to the FRC suite version HMRC accepts for the accounting
-# period (FRC 2023/2024/2025 for periods ending in 2025) and confirm against
+# FRC suite version HMRC accepts for periods ending in 2025 (FRC 2023/2024 both
+# valid; using 2024). Confirm acceptance via Test-in-Live.
 # https://www.gov.uk/government/publications/taxonomies-accepted-by-hm-revenue-and-customs
-# The 2021-01-01 entry point is the known-good version from the worked example.
-FRC_VERSION = "2021-01-01"
+FRC_VERSION = "2024-01-01"
 
 UK_CORE = f"http://xbrl.frc.org.uk/fr/{FRC_VERSION}/core"
 UK_BUS = f"http://xbrl.frc.org.uk/cd/{FRC_VERSION}/business"
