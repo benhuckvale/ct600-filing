@@ -158,12 +158,12 @@ def build_accounts(data: dict) -> bytes:
     # Completeness indicators ChRIS requires for a set of accounts.
     info_row("Trading status", "uk-bus:EntityTradingStatus", "")   # present (trading)
     info_row("Dormant", "uk-bus:EntityDormantTruefalse", "false")
-    # OPEN ITEM — "accounts type": ChRIS requires it ("bus:AccountsType is
-    # missing"), but tagging uk-bus:AccountsTypeFullOrAbbreviated (empty +
-    # AccountsTypeDimension=FullAccounts, the 2014–2021 form) is rejected in FRC
-    # 2024 as a non-item (cvc-complex-type.2.4.a). The 2024 concept/mechanism
-    # differs; needs confirming against the actual 2024 taxonomy or a real 2024
-    # micro example. This is the sole remaining TIL validation error.
+    # Accounts type: the 2024+ concept is uk-bus:AccountsType (the old
+    # AccountsTypeFullOrAbbreviated is no longer a reportable item — it errors
+    # cvc-complex-type.2.4.a). Value carried by AccountsTypeDimension=FullAccounts.
+    # Confirmed against a live FRS 105 sample (microaccounts.uk, FRC taxonomy).
+    dim_row("Accounts type", "Full micro-entity accounts", "uk-bus:AccountsType",
+            "uk-bus:AccountsTypeDimension", "uk-bus:FullAccounts")
     if acc.get("activities"):
         info_row("Principal activities", "uk-bus:DescriptionPrincipalActivities", acc["activities"])
     if acc.get("company_type"):
