@@ -147,8 +147,9 @@ def build_accounts(data: dict) -> bytes:
 
     info_row("Company name", "uk-bus:EntityCurrentLegalOrRegisteredName", company["name"])
     info_row("Company number", "uk-bus:UKCompaniesHouseRegisteredNumber", company["registration_number"])
-    info_row("Period start", "uk-bus:StartDateForPeriodCoveredByReport", period["from"])
-    info_row("Period end", "uk-bus:EndDateForPeriodCoveredByReport", period["to"])
+    # Period-cover dates and the incorporation date are instant-typed.
+    info_row("Period start", "uk-bus:StartDateForPeriodCoveredByReport", period["from"], ctx=cur_bs)
+    info_row("Period end", "uk-bus:EndDateForPeriodCoveredByReport", period["to"], ctx=cur_bs)
     dim_row("Accounting standard", "Micro-entities", "uk-bus:AccountingStandardsApplied",
             "uk-bus:AccountingStandardsDimension", "uk-bus:Micro-entities")
     dim_row("Audit status", "Unaudited (audit exempt, no accountant's report)",
@@ -164,7 +165,7 @@ def build_accounts(data: dict) -> bytes:
     for i, code in enumerate(sic_codes[:4], start=1):
         info_row(f"SIC code {i}", f"uk-bus:SICCodeRecordedUKCompaniesHouse{i}", str(code))
     if acc.get("formation_date"):
-        info_row("Date of incorporation", "uk-bus:DateFormationOrIncorporation", acc["formation_date"])
+        info_row("Date of incorporation", "uk-bus:DateFormationOrIncorporation", acc["formation_date"], ctx=cur_bs)
     if acc.get("jurisdiction"):
         dim_row("Jurisdiction of incorporation", acc["jurisdiction"],
                 "uk-bus:CountryFormationOrIncorporation",

@@ -137,10 +137,18 @@ class IxbrlDocument:
         start: str | None = None,
         end: str | None = None,
         dims: dict[str, str] | None = None,
+        typed_dims: dict[str, tuple[str, str]] | None = None,
     ) -> str:
-        """Declare (or reuse) a context and return its id."""
+        """Declare (or reuse) a context and return its id.
+
+        ``dims`` are explicit dimensions ({dimension qname: member qname}).
+        ``typed_dims`` are typed dimensions ({dimension qname: (domain element
+        qname, content)}) — e.g. ct-comp's BusinessNameDimension.
+        """
         dims = dims or {}
-        sig = (instant, start, end, tuple(sorted(dims.items())))
+        typed_dims = typed_dims or {}
+        sig = (instant, start, end, tuple(sorted(dims.items())),
+               tuple(sorted(typed_dims.items())))
         if sig in self._contexts:
             return self._contexts[sig]
         cid = f"ctxt-{self._ctx_count}"
@@ -151,11 +159,16 @@ class IxbrlDocument:
         etree.SubElement(
             ent, f"{XBRLIq}identifier", scheme=CH_SCHEME
         ).text = self.entity_number
-        if dims:
+        if dims or typed_dims:
             seg = etree.SubElement(ent, f"{XBRLIq}segment")
             for dim, member in sorted(dims.items()):
                 em = etree.SubElement(seg, f"{XBRLDIq}explicitMember", dimension=dim)
                 em.text = member
+            for dim, (domain, content) in sorted(typed_dims.items()):
+                tm = etree.SubElement(seg, f"{XBRLDIq}typedMember", dimension=dim)
+                prefix, local = domain.split(":")
+                de = etree.SubElement(tm, f"{{{self.root.nsmap[prefix]}}}{local}")
+                de.text = content
         per = etree.SubElement(c, f"{XBRLIq}period")
         if instant:
             etree.SubElement(per, f"{XBRLIq}instant").text = instant
@@ -181,9 +194,10 @@ class IxbrlDocument:
         el.set("contextRef", ctx)
         el.set("unitRef", unit)
         if unit == "pure":
-            # counts (e.g. employees) are plain integers, no transform/scale
+            # pure-unit facts (employee counts, tax rates) are plain numbers with
+            # no thousands separators, so they need no transform/scale.
             el.set("decimals", str(decimals))
-            el.text = f"{int(round(float(value)))}"
+            el.text = f"{round(float(value), decimals):.{decimals}f}"
             return el
         el.set("format", "ixt2:numdotdecimal")
         el.set("decimals", str(decimals))

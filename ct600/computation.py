@@ -53,10 +53,24 @@ def build_computation(data: dict) -> bytes:
         software_version=sw_version,
     )
 
-    dur = doc.context(start=period["from"], end=period["to"])
-    # ct-comp identity/metadata items (company name, UTR, period dates, software)
-    # are instant-typed — ChRIS rejects them in a duration context.
-    inst = doc.context(instant=period["to"])
+    # ct-comp 2024 is dimensional: every ct-comp primary item must sit in a
+    # context carrying the dimension(s) its hypercube requires, or ChRIS raises
+    # PrimaryItemDimensionallyInvalidError. Company-level items take
+    # BusinessTypeDimension=Company; the trade P&L line takes the full trade
+    # segment. (The FRC uk-core detailed-P&L lines are non-dimensional and use
+    # the plain duration context.)
+    COMPANY = {"ct-comp:BusinessTypeDimension": "ct-comp:Company"}
+    # identity/metadata items are also instant-typed, not duration
+    ident_ctx = doc.context(instant=period["to"], dims=COMPANY)
+    comp_ctx = doc.context(start=period["from"], end=period["to"], dims=COMPANY)
+    trade_ctx = doc.context(
+        start=period["from"], end=period["to"],
+        dims={"ct-comp:BusinessTypeDimension": "ct-comp:Trade",
+              "ct-comp:LossReformDimension": "ct-comp:Post-lossReform",
+              "ct-comp:TerritoryDimension": "ct-comp:UK"},
+        typed_dims={"ct-comp:BusinessNameDimension":
+                    ("ct-comp:BusinessNameDomain", company["name"])})
+    dur = doc.context(start=period["from"], end=period["to"])  # FRC detailed P&L
     body = doc.body
 
     _h(body, "h1", f"{company['name']} — Corporation tax computation")
@@ -64,7 +78,7 @@ def build_computation(data: dict) -> bytes:
 
     # Identity / period facts ---------------------------------------------
     ident = _h(body, "table")
-    def irow(label, name, value, ctx=inst, numeric=False, **kw):
+    def irow(label, name, value, ctx=ident_ctx, numeric=False, **kw):
         tr = _h(ident, "tr")
         _h(tr, "td", label)
         td = _h(tr, "td")
@@ -75,7 +89,7 @@ def build_computation(data: dict) -> bytes:
 
     irow("Company name", "ct-comp:CompanyName", company["name"])
     # Mandatory companion of CompanyName (a requires-element arc); duration-typed.
-    irow("Company is a partner in a firm", "ct-comp:CompanyIsAPartnerInAFirm", "false", ctx=dur)
+    irow("Company is a partner in a firm", "ct-comp:CompanyIsAPartnerInAFirm", "false", ctx=comp_ctx)
     irow("Tax reference (UTR)", "ct-comp:TaxReference", company["utr"])
     irow("Period start", "ct-comp:StartOfPeriodCoveredByReturn", period["from"])
     irow("Period end", "ct-comp:EndOfPeriodCoveredByReturn", period["to"])
@@ -103,13 +117,14 @@ def build_computation(data: dict) -> bytes:
     # --- Computation bridge ----------------------------------------------
     _h(body, "h2", "Adjustment of profit / tax computation")
     bridge = _h(body, "table")
-    def brow(label, name, value, decimals=2):
+    def brow(label, name, value, decimals=2, ctx=comp_ctx):
         tr = _h(bridge, "tr")
         _h(tr, "td", label)
         td = _h(tr, "td")
-        doc.num(td, name, value, dur, decimals=decimals)
+        doc.num(td, name, value, ctx, decimals=decimals)
 
-    brow("Profit/(loss) per accounts", "ct-comp:ProfitLossPerAccounts", comp["profit_loss_per_accounts"])
+    # Profit/(loss) per accounts is a trade-level item — full trade segment.
+    brow("Profit/(loss) per accounts", "ct-comp:ProfitLossPerAccounts", comp["profit_loss_per_accounts"], ctx=trade_ctx)
     brow("Net trading profits", "ct-comp:NetTradingProfits", comp.get("net_trading_profits", 0.0))
     brow("Profits before other deductions and reliefs", "ct-comp:ProfitsBeforeOtherDeductionsAndReliefs", comp.get("profits_before_other_deductions", 0.0))
     brow("Profits before charges and group relief", "ct-comp:ProfitsBeforeChargesAndGroupRelief", comp.get("profits_before_charges", 0.0))
@@ -118,25 +133,25 @@ def build_computation(data: dict) -> bytes:
     # --- Financial year split & tax --------------------------------------
     _h(body, "h2", "Tax payable")
     tax = _h(body, "table")
-    def trow(label, name, value, decimals=2, year=False):
+    def trow(label, name, value, decimals=2, year=False, unit="GBP"):
         tr = _h(tax, "tr")
         _h(tr, "td", label)
         td = _h(tr, "td")
         if year:
-            doc.text(td, name, str(value), dur)
+            doc.text(td, name, str(value), comp_ctx)
         else:
-            doc.num(td, name, value, dur, decimals=decimals)
+            doc.num(td, name, value, comp_ctx, decimals=decimals, unit=unit)
 
     fy1 = ct["financial_year_1"]
     trow("Financial year 1", "ct-comp:FinancialYear1CoveredByTheReturn", fy1["year"], year=True)
     trow("FY1 profit chargeable at first rate", "ct-comp:FY1AmountOfProfitChargeableAtFirstRate", fy1["profit"])
-    trow("FY1 first rate of tax", "ct-comp:FY1FirstRateOfTax", fy1["tax_rate"])
+    trow("FY1 first rate of tax", "ct-comp:FY1FirstRateOfTax", fy1["tax_rate"], unit="pure")
     trow("FY1 tax at first rate", "ct-comp:FY1TaxAtFirstRate", fy1["tax"])
     if "financial_year_2" in ct:
         fy2 = ct["financial_year_2"]
         trow("Financial year 2", "ct-comp:FinancialYear2CoveredByTheReturn", fy2["year"], year=True)
         trow("FY2 profit chargeable at first rate", "ct-comp:FY2AmountOfProfitChargeableAtFirstRate", fy2["profit"])
-        trow("FY2 first rate of tax", "ct-comp:FY2FirstRateOfTax", fy2["tax_rate"])
+        trow("FY2 first rate of tax", "ct-comp:FY2FirstRateOfTax", fy2["tax_rate"], unit="pure")
         trow("FY2 tax at first rate", "ct-comp:FY2TaxAtFirstRate", fy2["tax"])
 
     trow("Corporation tax chargeable", "ct-comp:CorporationTaxChargeable", ct.get("total", 0.0))
@@ -157,7 +172,7 @@ def build_computation(data: dict) -> bytes:
         _h(tr, "td", label)
         td = _h(tr, "td")
         if tag:
-            doc.num(td, tag, value, dur, decimals=2)
+            doc.num(td, tag, value, comp_ctx, decimals=2)
         else:
             td.text = f"{float(value):,.2f}"
 
