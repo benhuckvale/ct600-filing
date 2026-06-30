@@ -38,6 +38,23 @@ NSMAP = {
 
 MATURITY_DIM = "uk-core:MaturitiesOrExpirationPeriodsDimension"
 
+# A handful of descriptive concepts are NOT plain-text facts: ChRIS requires
+# them to be empty, with the value carried by an explicit dimension member (the
+# FRC "tag by dimension" pattern). Map our human-readable values to members.
+LEGAL_FORM_MEMBERS = {
+    "Private limited company": "uk-bus:PrivateLimitedCompanyLtd",
+    "Public limited company": "uk-bus:PublicLimitedCompanyPlc",
+    "Company limited by guarantee": "uk-bus:CompanyLimitedByGuaranteeWithoutShareCapital",
+    "Limited liability partnership": "uk-bus:LimitedLiabilityPartnershipLLP",
+}
+COUNTRY_MEMBERS = {
+    "England and Wales": "uk-geo:EnglandWales",
+    "England": "uk-geo:England",
+    "Wales": "uk-geo:Wales",
+    "Scotland": "uk-geo:Scotland",
+    "Northern Ireland": "uk-geo:NorthernIreland",
+}
+
 # yaml balance-sheet key -> (uk-core tag, maturity member or None)
 BALANCE_SHEET_LINES = [
     ("fixed_assets", "uk-core:FixedAssets", None),
@@ -117,16 +134,31 @@ def build_accounts(data: dict) -> bytes:
         td = _h(tr, "td")
         doc.text(td, name, value, ctx)
 
+    def dim_row(label, display, name, dimension, member):
+        """A descriptive concept tagged as an EMPTY fact whose value is the
+        dimension member; ``member=None`` shows the text untagged (no fact)."""
+        tr = _h(info, "tr")
+        _h(tr, "td", label)
+        td = _h(tr, "td", display)
+        if member:
+            ctx = doc.context(start=period["from"], end=period["to"],
+                              dims={dimension: member})
+            doc.text(td, name, "", ctx)
+
     info_row("Company name", "uk-bus:EntityCurrentLegalOrRegisteredName", company["name"])
     info_row("Company number", "uk-bus:UKCompaniesHouseRegisteredNumber", company["registration_number"])
     info_row("Period start", "uk-bus:StartDateForPeriodCoveredByReport", period["from"])
     info_row("Period end", "uk-bus:EndDateForPeriodCoveredByReport", period["to"])
-    info_row("Accounting standard", "uk-bus:AccountingStandardsApplied", "Micro-entities")
-    info_row("Audit status", "uk-bus:AccountsStatusAuditedOrUnaudited", "Unaudited")
+    dim_row("Accounting standard", "Micro-entities", "uk-bus:AccountingStandardsApplied",
+            "uk-bus:AccountingStandardsDimension", "uk-bus:Micro-entities")
+    dim_row("Audit status", "Unaudited (audit exempt, no accountant's report)",
+            "uk-bus:AccountsStatusAuditedOrUnaudited",
+            "uk-bus:AccountsStatusDimension", "uk-bus:AuditExempt-NoAccountantsReport")
     if acc.get("activities"):
         info_row("Principal activities", "uk-bus:DescriptionPrincipalActivities", acc["activities"])
     if acc.get("company_type"):
-        info_row("Legal form", "uk-bus:LegalFormEntity", acc["company_type"])
+        dim_row("Legal form", acc["company_type"], "uk-bus:LegalFormEntity",
+                "uk-bus:LegalFormEntityDimension", LEGAL_FORM_MEMBERS.get(acc["company_type"]))
     # SIC codes — uk-bus:SICCodeRecordedUKCompaniesHouse1..4 (Companies House allows up to 4)
     sic_codes = acc.get("sic_codes") or ([acc["sic_code"]] if acc.get("sic_code") else [])
     for i, code in enumerate(sic_codes[:4], start=1):
@@ -134,7 +166,9 @@ def build_accounts(data: dict) -> bytes:
     if acc.get("formation_date"):
         info_row("Date of incorporation", "uk-bus:DateFormationOrIncorporation", acc["formation_date"])
     if acc.get("jurisdiction"):
-        info_row("Jurisdiction of incorporation", "uk-bus:CountryFormationOrIncorporation", acc["jurisdiction"])
+        dim_row("Jurisdiction of incorporation", acc["jurisdiction"],
+                "uk-bus:CountryFormationOrIncorporation",
+                "uk-geo:CountriesRegionsDimension", COUNTRY_MEMBERS.get(acc["jurisdiction"]))
     office = acc.get("registered_office", {})
     if office.get("line1"):
         info_row("Registered office", "uk-bus:AddressLine1", office["line1"])
@@ -184,8 +218,12 @@ def build_accounts(data: dict) -> bytes:
     # TODO(pre-TIL): tag the micro-entity provisions statement with the exact
     # FRC uk-direp element once confirmed against the FRS 105 taxonomy.
 
-    approved = _h(body, "p", "Approved by the board and signed on its behalf by: ")
-    doc.text(approved, "uk-core:DirectorSigningFinancialStatements", acc["director"], cur_dur)
+    approved = _h(body, "p", f"Approved by the board and signed on its behalf by: {acc['director']}")
+    # Which director signed — an empty fact; the officer is identified by the
+    # EntityOfficersDimension member, not by element text.
+    officer_ctx = doc.context(start=period["from"], end=period["to"],
+                              dims={"uk-bus:EntityOfficersDimension": "uk-bus:Director1"})
+    doc.text(approved, "uk-core:DirectorSigningFinancialStatements", "", officer_ctx)
     if acc.get("approval_date"):
         dt = _h(body, "p", "Date approved: ")
         doc.text(dt, "uk-core:DateAuthorisationFinancialStatementsForIssue", acc["approval_date"], cur_bs)

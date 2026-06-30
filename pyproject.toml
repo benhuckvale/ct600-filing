@@ -34,6 +34,8 @@ check-history = {cmd = "bash -c 'git log -p | python scripts/check_history.py'"}
 check-staged = {cmd = "bash -c 'git diff --cached | python scripts/check_history.py'"}
 install-hooks = {cmd = "git config core.hooksPath .githooks"}
 preview = {cmd = "python scripts/preview_xml.py"}
+show = {cmd = "python scripts/show_submission.py"}
+poll = {cmd = "python scripts/poll_submission.py"}
 
 [tool.pytest.ini_options]
 markers = [

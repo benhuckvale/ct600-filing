@@ -54,6 +54,9 @@ def build_computation(data: dict) -> bytes:
     )
 
     dur = doc.context(start=period["from"], end=period["to"])
+    # ct-comp identity/metadata items (company name, UTR, period dates, software)
+    # are instant-typed — ChRIS rejects them in a duration context.
+    inst = doc.context(instant=period["to"])
     body = doc.body
 
     _h(body, "h1", f"{company['name']} — Corporation tax computation")
@@ -61,16 +64,18 @@ def build_computation(data: dict) -> bytes:
 
     # Identity / period facts ---------------------------------------------
     ident = _h(body, "table")
-    def irow(label, name, value, numeric=False, **kw):
+    def irow(label, name, value, ctx=inst, numeric=False, **kw):
         tr = _h(ident, "tr")
         _h(tr, "td", label)
         td = _h(tr, "td")
         if numeric:
-            doc.num(td, name, value, dur, **kw)
+            doc.num(td, name, value, ctx, **kw)
         else:
-            doc.text(td, name, value, dur)
+            doc.text(td, name, value, ctx)
 
     irow("Company name", "ct-comp:CompanyName", company["name"])
+    # Mandatory companion of CompanyName (a requires-element arc); duration-typed.
+    irow("Company is a partner in a firm", "ct-comp:CompanyIsAPartnerInAFirm", "false", ctx=dur)
     irow("Tax reference (UTR)", "ct-comp:TaxReference", company["utr"])
     irow("Period start", "ct-comp:StartOfPeriodCoveredByReturn", period["from"])
     irow("Period end", "ct-comp:EndOfPeriodCoveredByReturn", period["to"])

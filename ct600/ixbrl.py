@@ -21,7 +21,10 @@ XLINK = "http://www.w3.org/1999/xlink"
 XBRLI = "http://www.xbrl.org/2003/instance"
 XBRLDI = "http://xbrl.org/2006/xbrldi"
 IXT2 = "http://www.xbrl.org/inlineXBRL/transformation/2011-07-31"
-ISO4217 = "http://www.iso.org/iso/iso4217"
+# XBRL's currency namespace is xbrl.org's, NOT iso.org's — ChRIS rejects
+# iso4217:GBP measures declared under http://www.iso.org/iso/iso4217 as
+# "non-ISO-4217 currency measure".
+ISO4217 = "http://www.xbrl.org/2003/iso4217"
 CH_SCHEME = "http://www.companieshouse.gov.uk/"
 
 BASE_NSMAP = {

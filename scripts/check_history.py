@@ -20,6 +20,11 @@ DUMMY = {
     "dummy", "0000", "", "yes", "no", "Director", "Secretary", "Company",
     "ct600-filing", "Other - PDF attached with explanation",
     "Micro-entity accounts filed separately with Companies House.",
+    # Generic, public company classifications — these are taxonomy enumeration
+    # values (not personal identifiers), and appear as mapping keys in the code.
+    "Private limited company", "Public limited company",
+    "Company limited by guarantee", "Limited liability partnership",
+    "England and Wales", "England", "Wales", "Scotland", "Northern Ireland",
 }
 
 
