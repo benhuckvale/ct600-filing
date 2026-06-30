@@ -31,6 +31,8 @@ test-lts = "pytest tests/test_lts.py -v -m integration"
 ct600-cli = {call = "ct600.cli:main"}
 lts = {call = "ct600.lts:lts"}
 check-history = {cmd = "bash -c 'git log -p | python scripts/check_history.py'"}
+check-staged = {cmd = "bash -c 'git diff --cached | python scripts/check_history.py'"}
+install-hooks = {cmd = "git config core.hooksPath .githooks"}
 preview = {cmd = "python scripts/preview_xml.py"}
 
 [tool.pytest.ini_options]

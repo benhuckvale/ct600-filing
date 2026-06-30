@@ -16,8 +16,16 @@ financial figures, address and credentials:
 - `submissions/` — request/response audit trail and the running log
 - `tax_return_*.txt`, `*.mhtml`, generated `*.xml` at repo root
 
-Before any commit, verify nothing sensitive is staged:
-`pdm run check-history` (scans history) and eyeball `git diff --cached`.
+A pre-commit hook enforces this: it pipes the staged diff through
+`scripts/check_history.py` and blocks the commit if any sensitive value appears.
+The search strings are **never committed** — they are read at runtime from the
+gitignored `.env` and `returns/*.yaml`, so the hook is a no-op on a clone that
+has neither. Install once per clone:
+
+    pdm run install-hooks      # sets core.hooksPath to .githooks
+
+Manual checks: `pdm run check-staged` (staged diff) or `pdm run check-history`
+(full history). Override a false positive with `git commit --no-verify`.
 
 ## Commit style
 

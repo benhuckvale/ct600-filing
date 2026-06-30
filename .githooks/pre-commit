@@ -1,0 +1,28 @@
+#!/bin/sh
+# Block commits that would introduce sensitive values (UTR, figures, address,
+# credentials) from .env / returns/ into tracked files.
+#
+# Install (once per clone): pdm run install-hooks
+#   (sets core.hooksPath to .githooks; see AGENTS.md)
+#
+# Bypass a false positive with: git commit --no-verify
+
+diff=$(git diff --cached)
+[ -z "$diff" ] && exit 0
+
+if command -v pdm >/dev/null 2>&1; then
+    runner="pdm run python"
+else
+    runner="python3"
+fi
+
+echo "$diff" | $runner "$(git rev-parse --show-toplevel)/scripts/check_history.py"
+status=$?
+
+if [ "$status" -ne 0 ]; then
+    echo
+    echo "pre-commit: BLOCKED — sensitive values in staged changes (see above)."
+    echo "Review the diff. To override a false positive: git commit --no-verify"
+    exit 1
+fi
+exit 0
