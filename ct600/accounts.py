@@ -20,7 +20,14 @@ UK_CORE = f"http://xbrl.frc.org.uk/fr/{FRC_VERSION}/core"
 UK_BUS = f"http://xbrl.frc.org.uk/cd/{FRC_VERSION}/business"
 UK_DIREP = f"http://xbrl.frc.org.uk/reports/{FRC_VERSION}/direp"
 UK_GEO = f"http://xbrl.frc.org.uk/cd/{FRC_VERSION}/countries"
-FRS105_SCHEMA = f"https://xbrl.frc.org.uk/FRS-105/{FRC_VERSION}/FRS-105-{FRC_VERSION}.xsd"
+# Micro-entity (FRS 105) accounts tag against the unified FRC entry point, which
+# from the 2022 suite onward is the FRS-102 schema (it subsumes FRS 105, DPL and
+# SECR). There is no separate FRS-105 entry point after 2021 — pointing at one
+# yields ChRIS "schemaRef could not be obtained", which cascades into every FRC
+# concept falling back to an anonymous fixed type. The fr/cd/reports namespaces
+# above are shared across the suite and unchanged.
+FRC_ACCOUNTS_SCHEMA = f"https://xbrl.frc.org.uk/FRS-102/{FRC_VERSION}/FRS-102-{FRC_VERSION}.xsd"
+FRS105_SCHEMA = FRC_ACCOUNTS_SCHEMA  # backwards-compatible alias (imported by computation.py)
 
 NSMAP = {
     "uk-core": UK_CORE,
