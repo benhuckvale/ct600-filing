@@ -100,7 +100,12 @@ class IxbrlDocument:
         nsmap = {None: XHTML, **BASE_NSMAP, **taxonomy_nsmap}
         self.root = etree.Element(f"{H}html", nsmap=nsmap)
         head = etree.SubElement(self.root, f"{H}head")
-        etree.SubElement(head, f"{H}meta", attrib={"charset": "UTF-8"})
+        # XHTML (which HMRC validates against) requires the http-equiv/content
+        # form — the HTML5 `<meta charset>` is rejected (cvc-complex-type.3.2.2/4).
+        etree.SubElement(head, f"{H}meta", attrib={
+            "http-equiv": "Content-Type",
+            "content": "text/html; charset=UTF-8",
+        })
         etree.SubElement(head, f"{H}title").text = title
         self.body = etree.SubElement(self.root, f"{H}body")
 
