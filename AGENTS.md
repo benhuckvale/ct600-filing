@@ -6,6 +6,10 @@ micro-entity accounts (FRS 105) and CT computation, and submits it to HMRC.
 This file is committed and tool-agnostic. It must contain **no personal data**
 (no UTR, figures, names, or address). Those live only in gitignored files.
 
+When HMRC rejects a submission, see **`TROUBLESHOOTING.md`** — an error → meaning
+→ fix catalogue keyed on the actual ChRIS messages (taxonomy resolution, period
+types, dimensional validity, completeness rules), plus the diagnosis workflow.
+
 ## Golden rule: no personal data in git
 
 The following are gitignored and must stay that way — they carry the UTR,
