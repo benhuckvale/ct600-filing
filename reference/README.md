@@ -130,6 +130,13 @@ A hosted FRS 105 micro-entity accounts iXBRL generator. Generating a known-good
 sample from its API confirmed the correct FRC 2024+ tagging (e.g. the
 `uk-bus:AccountsType` rename) when the bundled 2021 reference had gone stale.
 
+It generates the iXBRL *server-side*, so the useful reference is a generated
+sample rather than the site itself. **`pdm run fetch-microaccounts-sample`** posts
+dummy data (never real figures) and saves `reference/microaccounts-sample.html`
+to diff against our output. It's a free service with no open licence, so the
+sample is gitignored (not redistributed) and the script hits their API once per
+run — use it sparingly.
+
 ---
 
 ## Test-in-Live (TIL)

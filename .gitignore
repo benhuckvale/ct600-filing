@@ -26,6 +26,7 @@ tax_return_notes_*.txt
 submissions/
 *.mhtml
 reference/ct600/
+reference/microaccounts-sample.html
 
 # Credentials
 .env
