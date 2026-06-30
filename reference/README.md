@@ -85,6 +85,10 @@ These are fixed enumerations (max 40 chars). Use `"Other - PDF attached with exp
 ### [cybermaggedon/ct600 (GitHub)](https://github.com/cybermaggedon/ct600)
 Open-source Python/XSLT CT600 utility. Takes iXBRL accounts files and extracts data to populate CT600 fields. Supports LTS, Test-in-Live, and production submission. Useful as a reference for XML structure and LTS interaction, though it targets the full iXBRL workflow rather than the `no_accounts_reason` path used here.
 
+Its worked iXBRL examples (`accts.html`, `ct.html`) are referenced throughout
+`TROUBLESHOOTING.md`. They live in the gitignored `reference/ct600/` — run
+**`pdm run fetch-reference`** to clone the project (pinned commit) and populate it.
+
 ---
 
 ## Test-in-Live (TIL)

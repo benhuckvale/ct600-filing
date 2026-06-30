@@ -44,9 +44,11 @@ substance.**
   (JSON body; send `Origin: https://microaccounts.uk` or it 403s with "Request
   origin unknown"). Use **dummy data** — never send the real company's figures to
   a third party. Diff its iXBRL against ours to find the right concept/dimension.
-- `reference/ct600/accts.html` + `ct.html` are worked examples, but they are an
-  **older taxonomy** (2021/2014) — good for structure, but concept names and
-  modelling changed; verify against a current sample (above) before trusting them.
+- `reference/ct600/accts.html` + `ct.html` are worked examples (from
+  cybermaggedon/ct600; run `pdm run fetch-reference` to materialise the gitignored
+  `reference/ct600/`), but they are an **older taxonomy** (2021/2014) — good for
+  structure, but concept names and modelling changed; verify against a current
+  sample (above) before trusting them.
 
 ## Error catalogue
 

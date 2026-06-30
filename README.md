@@ -4,6 +4,8 @@ A command-line tool to file a CT600 Corporation Tax return with HMRC.
 
 You fill in a YAML file with your company's figures, and the tool translates it into the XML format HMRC expects and submits it.
 
+HMRC's free **Company Accounts and Tax Online (CATO)** service — the joint HMRC/Companies House service many small companies used to file accounts and a CT600 online — closed on **31 March 2026**, leaving commercial software as the main route to file. This is an open, self-hosted alternative for the micro-entity (FRS 105) case.
+
 ## How HMRC submission works
 
 HMRC accepts CT600 returns as a `GovTalkMessage` XML document posted over HTTP to their Transaction Processing and Validation Service (TPVS). The document contains:
@@ -159,11 +161,15 @@ pdm run test         # integration tests skip cleanly if LTS isn't running
 ct600/
   cli.py       — Click CLI entry point
   build.py     — translates the YAML data dict into GovTalkMessage XML
+  ixbrl.py     — shared inline-XBRL builder (contexts, facts, units, dimensions)
+  accounts.py  — FRS 105 micro-entity iXBRL accounts
+  computation.py — CT computation iXBRL (detailed P&L + tax bridge)
   irmark.py    — computes the IRmark (SHA-1 of canonicalised body, element removed)
-  submit.py    — HTTP POST to LTS / TIL / production
+  submit.py    — HTTP POST to LTS / TIL / production; records to submissions/
   lts.py       — LTS manager (download, install artefacts, start, stop, status)
 return.yaml    — CT600 template — copy to returns/ and fill in each year
 returns/       — your actual returns (gitignored)
+submissions/   — per-attempt request/response audit trail (gitignored)
 tests/
   test_build.py    — unit tests for XML generation
   test_irmark.py   — unit tests for IRmark computation
@@ -171,10 +177,77 @@ tests/
 lts/               — HMRC's Local Test Service (Java, not committed to git)
 reference/
   README.md    — technical references: HMRC specs, schema notes, links
+  ct600/       — cybermaggedon/ct600 worked examples (gitignored; `pdm run fetch-reference`)
 ```
+
+See `AGENTS.md` for the agent/CLI contract and `TROUBLESHOOTING.md` for the
+HMRC validation error catalogue.
 
 ## What is the LTS?
 
 The **Local Test Service** is a Java/Jetty application distributed by HMRC for software developers. It runs a local HTTP server on port 5665 that behaves like the production TPVS gateway — it validates your XML against the CT600 XSD schema, checks the IRmark, and returns a `GovTalkMessage` response. It never contacts HMRC.
 
 The LTS is configured by **RIM artefacts** — per-service packages (XSD schema, Schematron rules) distributed separately by HMRC and installed with `pdm run lts install`.
+
+## How this compares
+
+There are good tools in this space already; this one fills a specific niche.
+
+- **[microaccounts.uk](https://microaccounts.uk/)** is a hosted web form that
+  generates FRS 105 micro-entity *accounts* iXBRL — a genuinely nice, friendly
+  tool. It produces the accounts document only. You still have to submit it.
+- **[cybermaggedon/ct600](https://github.com/cybermaggedon/ct600)** (with
+  [ixbrl-reporter](https://github.com/cybermaggedon/ixbrl-reporter)) is a more
+  general and mature toolchain: ixbrl-reporter builds accounts and computation
+  iXBRL from configurable templates and accounting sources (e.g. GnuCash), and
+  ct600 submits. More powerful and flexible — and correspondingly more moving
+  parts to set up.
+
+By contrast, **this project** is a single self-contained CLI aimed squarely at
+the micro-entity (FRS 105) case:
+
+- one version-controlled **YAML file** in → accounts iXBRL **and** computation
+  iXBRL **and** the CT600 envelope **and** submission — no separate templating
+  system or accounting-package dependency;
+- everything runs **locally**; your figures never leave your machine;
+- **reproducible** year to year (edit the numbers, diff, regenerate), with a
+  built-in submission audit trail.
+
+It deliberately trades generality for focus: if you want a configurable,
+multi-format toolchain, cybermaggedon's is the richer choice; if you want one
+file and one command to file a micro-entity return, this is leaner.
+
+A perfectly sensible workflow, in fact, is to use microaccounts.uk's form to
+produce your accounts iXBRL — the form is a genuinely helpful reminder of *which*
+fields a micro-entity needs — and then automate the GovTalk/IRmark submission to
+HMRC with a script or an agent (Claude included).
+
+Still, this project has a complete end-to-end workflow for essentially that.
+The `returns/*.yaml` file plays the role of the form (the same field
+checklist, but version-controlled and reusable), and the tool generates both
+the accounts *and* the computation iXBRL, builds the envelope,
+computes the IRmark, and submits.
+
+## Acknowledgements
+
+HMRC's iXBRL validation is unforgiving and barely documented in practice; a few
+open resources made it far less painful, and genuine thanks go to all of them.
+
+The two reference projects described above — cybermaggedon's **ct600** /
+**ixbrl-reporter** and **microaccounts.uk** — were the most valuable: the first
+for understanding how iXBRL fits together (materialise its worked examples with
+`pdm run fetch-reference`), the second for confirming correct tagging when older
+references had gone stale. Alongside them:
+
+- **[SureFile Accounts — supported taxonomies](https://www.surefileaccounts.com/technical/taxonomies.html)**
+  — a clear cross-reference for the FRC taxonomy entry-point URLs, especially handy
+  when the FRC servers block automated access.
+- **[FRC Taxonomies](https://www.frc.org.uk/library/standards-codes-policy/accounting-and-reporting/frc-taxonomies/)**
+  and **[Taxonomies accepted by HMRC](https://www.gov.uk/government/publications/taxonomies-accepted-by-hm-revenue-and-customs)**
+  — authoritative on which taxonomy version and entry point is valid for a given
+  accounting period.
+- **[HMRC Corporation Tax: support for software developers](https://www.gov.uk/government/collections/corporation-tax-online-support-for-software-developers)**
+  and the **Local Test Service** — the schema, Schematron rules, IRmark
+  specification, and local validator.
+
+The specifics of what each helped resolve are in `TROUBLESHOOTING.md`.
