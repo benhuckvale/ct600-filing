@@ -23,7 +23,7 @@ returns/
 /*.xml
 tax_return_form_*.txt
 tax_return_notes_*.txt
-submission-log.md
+submissions/
 *.mhtml
 reference/ct600/
 
